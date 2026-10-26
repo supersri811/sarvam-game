@@ -1,12 +1,13 @@
-# वर्णमाला – learn Hindi letters by voice
+# वर्णमाला – learn Hindi in a pixel world
 
 A gamified Hindi-learning web app built for a Sarvam AI hackathon: a pixel-art world (bazaar, forest, desert, lair) with Hindi-speaking NPCs and a boss fight, plus a Classic mode with an Alphabet trainer and Duolingo-style practice. Answers are typed or picked; NPC lines and your replies can be played aloud with Sarvam text-to-speech.
 
-- **Text-to-speech:** Sarvam Bulbul v3 (`/api/tts`)
-- **Speech-to-text:** Sarvam Saaras v4 (`/api/stt`)
-- **Game layer:** XP, levels, day streak and progress, saved in the browser
+- **World mode:** walk the Bazaar, Autumn Forest, Desert and the Rakshasa's Lair (arrows/WASD or d-pad, Space/A to talk). Collect 3 word-gems from Hindi conversations, then win the boss battle by answering Hindi questions. 4 hidden, overpowered perks (look for sparkles).
+- **Classic mode** (📚 button): Alphabet trainer and Duolingo-style practice lessons (hearts, combos, XP).
+- **Sarvam AI:** Bulbul v3 text-to-speech plays NPC lines and your replies (🔊). A Saaras speech-to-text endpoint (`/api/stt`) exists but is not used by the UI right now.
+- Light/dark mode, progress saved in the browser. Sprites: [Kenney](https://kenney.nl) Tiny Town + Tiny Dungeon (CC0).
 
-Planned: mixed exercises, then a live-generated story mode with Sarvam-105B.
+Planned: live-generated conversations with Sarvam-105B, voice answers.
 
 ## Run locally
 

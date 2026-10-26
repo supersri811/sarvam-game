@@ -52,7 +52,7 @@ body.worldmode nav { display:none; }
 .bagrow small { color:var(--muted); }
 
 /* battle */
-.binner { background:linear-gradient(#3b2a4a, #1c1424); color:#fff; border:4px solid #000; border-radius:18px; width:100%; max-width:560px; padding:14px; animation:dlg .3s ease; }
+.binner { background:linear-gradient(#3b2a4a, #1c1424); color:#fff; border:4px solid #000; border-radius:18px; width:100%; max-width:560px; padding:14px; animation:dlg .3s ease; max-height:100%; overflow:auto; }
 .bfield { display:flex; justify-content:space-between; align-items:flex-end; }
 .bside { width:46%; }
 .bside canvas { width:96px; height:96px; image-rendering:pixelated; display:block; margin-top:6px; }
