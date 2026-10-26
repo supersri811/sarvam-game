@@ -11,7 +11,7 @@ const dung = new Image(); dung.src = "/static/assets/tiny-dungeon/Tilemap/tilema
 // legend: char -> [sheet, tile index, solid?, ground drawn underneath]
 const G = [town, 0];
 const LEGEND = {
-  ".":[town,0,false], ",":[town,2,false], "=":[town,43,false], "O":[town,104,true,G], "S":[town,83,true,G],
+  ".":[town,0,false], ",":[town,2,false], "=":[town,43,false], "O":[town,104,true,G], "V":[town,92,true,G], "D":[town,86,true],
   "T":[town,16,true,G], "A":[town,15,true,G], "P":[town,28,true,G], "B":[town,5,true,G], "#":[town,81,true,G],
   "R":[town,53,true], "G":[town,61,true], "W":[town,73,true], "w":[town,77,true],
   "d":[town,86,false], "o":[town,90,false],                    // school door, dojo door
@@ -23,18 +23,18 @@ const LEGEND = {
 const AREAS = {
   bazaar: { name:"बाज़ार · Bazaar", map:[
     "TTTTTTTTTTTTTTTTTTTT",
-    "T.RRR....,....GGG..T",
-    "T.RRR.........GGG..T",
-    "T.WdW....,....wow..T",
-    "T..=...........=...T",
+    "T.RRR..RRR....GGG..T",
+    "T.RRR..RRR....GGG..T",
+    "T.WdW..WDW....wow..T",
+    "T..=....=......=...T",
     "T..=============....",
-    "T,.=....,...=.......",
-    "T..=.#O#....=..,...T",
-    "T..=.........B.....T",
-    "T..=..,......BB...,T",
-    "T..=...............T",
-    "T..=......,........T",
-    "T..=...............T",
+    "T,.=..V.,...=.......",
+    "T..=..O.....=..,...T",
+    "T..=........=.RRR..T",
+    "T..=..,.....=.RRR..T",
+    "T..=.GGG....=.WDW..T",
+    "T..=.GGG....=..=...T",
+    "T..=.wDw....====B..T",
     "TTT=TTTTTTTTTTTTTTTT"],
     exits:{ east:["forest",1,5], south:["desert",3,1] } },
   forest: { name:"जंगल · Autumn Forest", map:[
@@ -133,7 +133,14 @@ const NPCS = [
     open:{ hi:"तीन रत्न! जाओ वीर, राक्षस अंदर है।", en:"Three gems! Go, hero, the Rakshasa is inside.", opts:[{ hi:"चलो!", en:"Let's go!", r:"chalo" }] } } },
   { id:"boss", area:"lair", x:10, y:4, s:110, name:"राक्षस (Rakshasa)", nodes:{
     start:{ hi:"हा हा हा! शब्द मेरे हैं!", en:"Ha ha ha! The words are mine!", opts:[{ hi:"शब्द लौटाओ!", en:"Give back the words!", r:"shabd lautaao", next:"fight" }] } } },
+  { id:"v1", area:"bazaar", x:5, y:8, s:85, wander:true, name:"गाँववाला (Villager)", nodes:{ start:{ hi:"राम राम! आज मौसम अच्छा है।", en:"Hello! The weather is nice today.", opts:[{ hi:"हाँ, बहुत अच्छा!", en:"Yes, very nice!", r:"haan, bahut achchha" }] } } },
+  { id:"v2", area:"bazaar", x:10, y:11, s:86, wander:true, name:"किसान (Farmer)", nodes:{ start:{ hi:"मेरी बकरी कहाँ है? तुमने देखी?", en:"Where is my goat? Have you seen it?", opts:[{ hi:"नहीं, मुझे नहीं पता।", en:"No, I don't know.", r:"nahin, mujhe nahin pataa" }] } } },
+  { id:"v3", area:"bazaar", x:16, y:6, s:111, wander:true, name:"बुज़ुर्ग (Elder)", nodes:{ start:{ hi:"दोजो में अभ्यास करो, बच्चे!", en:"Practise in the Dojo, child!", opts:[{ hi:"ठीक है, बाबा!", en:"Okay, grandpa!", r:"theek hai, baabaa" }] } } },
+  { id:"v4", area:"bazaar", x:4, y:6, s:97, wander:true, name:"सिपाही (Guard)", nodes:{ start:{ hi:"बाज़ार में आम सस्ते हैं।", en:"Mangoes are cheap in the bazaar.", opts:[{ hi:"धन्यवाद!", en:"Thanks!", r:"dhanyavaad" }] } } },
+  { id:"v5", area:"forest", x:6, y:5, s:87, wander:true, name:"लकड़हारा (Woodcutter)", nodes:{ start:{ hi:"सुना है जंगल के कोने में उल्लू छिपा है...", en:"I hear an owl hides in a corner of the forest...", opts:[{ hi:"सच में?", en:"Really?", r:"sach mein" }] } } },
+  { id:"v6", area:"desert", x:9, y:6, s:86, wander:true, name:"यात्री (Traveller)", nodes:{ start:{ hi:"बहुत गर्मी है! पानी है?", en:"It's very hot! Do you have water?", opts:[{ hi:"माफ़ कीजिए, नहीं।", en:"Sorry, no.", r:"maaf keejiye, nahin" }] } } },
 ];
+for (const n of NPCS) Object.assign(n, { hx:n.x, hy:n.y, fx:n.x, fy:n.y, t:1, face:1 });   // home + animation state
 
 // ---- secrets: deliberately overpowered perks ----
 const SECRETS = [
@@ -162,9 +169,9 @@ function pieceAt(c, x, y, fallback) {
   const lmr = (set, l, m, r) => !is(-1, 0, set) ? l : !is(1, 0, set) ? r : m;
   if (c === "R") return (is(0, -1, "R") ? 64 : 52) + lmr("R", 0, 1, 2);
   if (c === "G") return (is(0, -1, "G") ? 60 : 48) + lmr("G", 0, 1, 2);
-  if (c === "W") return lmr("Wd", 72, 73, 75);
-  if (c === "w") return lmr("wo", 76, 77, 79);
-  if (c === "#") return lmr("#O", 80, 81, 82);
+  if (c === "W") return lmr("WdD", 72, 73, 75);
+  if (c === "w") return lmr("woD", 76, 77, 79);
+  if (c === "D" && is(-1, 0, "w")) return 90;
   return fallback;
 }
 let anim = { px:W.x, py:W.y, t:1, fx:W.x, fy:W.y }, face = 1, frame = 0;
@@ -184,8 +191,16 @@ function draw() {
     const px = (s.x - camX) * TS + 8, py = (s.y - camY) * TS + 8, r = 2 + Math.sin(frame / 8) * 1.5;
     ctx.fillStyle = "rgba(255,240,120,.9)"; ctx.fillRect(px - r, py - .5, r * 2, 1); ctx.fillRect(px - .5, py - r, 1, r * 2);
   }
-  for (const n of NPCS) if (n.area === W.area && !(n.id === "boss" && W.won))
-    drawTile(dung, n.s, Math.round((n.x - camX) * TS), Math.round((n.y - camY) * TS) + (n.id === "boss" ? Math.sin(frame / 10) : 0));
+  for (const n of NPCS) if (n.area === W.area && !(n.id === "boss" && W.won)) {
+    if (n.t < 1) n.t = Math.min(1, n.t + .08);
+    const nx = (n.fx + (n.x - n.fx) * n.t - camX) * TS, ny = (n.fy + (n.y - n.fy) * n.t - camY) * TS;
+    const hop = n.t < 1 ? -Math.abs(Math.sin(n.t * Math.PI)) * 2 : 0;
+    const bob = n.id === "boss" ? Math.sin(frame / 10) : hop;
+    ctx.save();
+    if (n.face < 0) { ctx.translate(Math.round(nx) + TS, Math.round(ny + bob)); ctx.scale(-1, 1); drawTile(dung, n.s, 0, 0); }
+    else drawTile(dung, n.s, Math.round(nx), Math.round(ny + bob));
+    ctx.restore();
+  }
   // player (bob while walking, flip for left)
   const bob = anim.t < 1 ? -Math.abs(Math.sin(anim.t * Math.PI)) * 2 : 0;
   const ppx = Math.round((cx - camX) * TS), ppy = Math.round((cy - camY) * TS + bob);
@@ -231,6 +246,19 @@ function stepOn(x, y) {
   if (s) findSecret(s);
 }
 // the 'k' tile in the desert is next to the guard; stepping off the lair's 'k' goes back
+
+// villagers stroll near their home spot (never onto you, never mid-conversation)
+setInterval(() => {
+  if (busy()) return;
+  for (const n of NPCS) {
+    if (!n.wander || n.area !== W.area || Math.random() < .45) continue;
+    const [dx, dy] = shuffle([[1,0],[-1,0],[0,1],[0,-1]])[0];
+    const x = n.x + dx, y = n.y + dy;
+    if (Math.abs(x - n.hx) > 3 || Math.abs(y - n.hy) > 2) continue;
+    if ((x === W.x && y === W.y) || solid(x, y) || "dok".includes(tileAt(x, y))) continue;
+    Object.assign(n, { fx:n.x, fy:n.y, x, y, t:0, face: dx || n.face });
+  }
+}, 900);
 
 // ---- perks ----
 function findSecret(s) {
