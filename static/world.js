@@ -11,7 +11,7 @@ const dung = new Image(); dung.src = "/static/assets/tiny-dungeon/Tilemap/tilema
 // legend: char -> [sheet, tile index, solid?, ground drawn underneath]
 const G = [town, 0];
 const LEGEND = {
-  ".":[town,0,false], ",":[town,2,false], "=":[town,25,false],
+  ".":[town,0,false], ",":[town,2,false], "=":[town,43,false], "O":[town,104,true,G], "S":[town,83,true,G],
   "T":[town,16,true,G], "A":[town,15,true,G], "P":[town,28,true,G], "B":[town,5,true,G], "#":[town,81,true,G],
   "R":[town,53,true], "G":[town,61,true], "W":[town,73,true], "w":[town,77,true],
   "d":[town,86,false], "o":[town,90,false],                    // school door, dojo door
@@ -29,7 +29,7 @@ const AREAS = {
     "T..=...........=...T",
     "T..=============....",
     "T,.=....,...=.......",
-    "T..=.###....=..,...T",
+    "T..=.#O#....=..,...T",
     "T..=.........B.....T",
     "T..=..,......BB...,T",
     "T..=...............T",
@@ -156,6 +156,17 @@ const tileAt = (x, y) => (area().map[y] || "")[x] || " ";
 function drawTile(sheet, i, px, py) {
   ctx.drawImage(sheet, (i % 12) * TS, Math.floor(i / 12) * TS, TS, TS, px, py, TS, TS);
 }
+// buildings and fences are made of edge/middle pieces: pick the right one from the neighbours
+function pieceAt(c, x, y, fallback) {
+  const is = (dx, dy, set) => set.includes(tileAt(x + dx, y + dy));
+  const lmr = (set, l, m, r) => !is(-1, 0, set) ? l : !is(1, 0, set) ? r : m;
+  if (c === "R") return (is(0, -1, "R") ? 64 : 52) + lmr("R", 0, 1, 2);
+  if (c === "G") return (is(0, -1, "G") ? 60 : 48) + lmr("G", 0, 1, 2);
+  if (c === "W") return lmr("Wd", 72, 73, 75);
+  if (c === "w") return lmr("wo", 76, 77, 79);
+  if (c === "#") return lmr("#O", 80, 81, 82);
+  return fallback;
+}
 let anim = { px:W.x, py:W.y, t:1, fx:W.x, fy:W.y }, face = 1, frame = 0;
 function draw() {
   frame++;
@@ -166,7 +177,7 @@ function draw() {
     const L = LEGEND[tileAt(x, y)]; if (!L) continue;
     const px = Math.round((x - camX) * TS), py = Math.round((y - camY) * TS);
     if (L[3]) drawTile(L[3][0], L[3][1], px, py);
-    drawTile(L[0], L[1], px, py);
+    drawTile(L[0], pieceAt(tileAt(x, y), x, y, L[1]), px, py);
   }
   // sparkles for secrets not yet found
   for (const s of SECRETS) if (s.area === W.area && !W.found.includes(s.id)) {
