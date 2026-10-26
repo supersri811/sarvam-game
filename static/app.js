@@ -138,17 +138,33 @@ async function errorText(res) {
 // Sarvam text-to-speech (used by the world's NPCs and your replies). Throws on failure.
 let player = null;
 const audioCache = new Map();           // text -> Blob, so a replay doesn't hit the network again
+let sarvamDown = false;                 // after one failure (e.g. no credits) go straight to the browser voice
 async function playText(text) {
-  if (player) player.pause();
-  if (!audioCache.has(text)) {
-    const res = await fetch("/api/tts", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ text }) });
-    if (!res.ok) throw new Error(await errorText(res));
-    audioCache.set(text, await res.blob());
+  stopAudio();
+  if (!sarvamDown && !audioCache.has(text)) {
+    try {
+      const res = await fetch("/api/tts", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ text }) });
+      if (!res.ok) throw new Error(await errorText(res));
+      audioCache.set(text, await res.blob());
+    } catch { sarvamDown = true; }
   }
-  player = new Audio(URL.createObjectURL(audioCache.get(text)));
-  await player.play();
+  if (audioCache.has(text)) {
+    player = new Audio(URL.createObjectURL(audioCache.get(text)));
+    return player.play();
+  }
+  browserSpeak(text);
 }
-function stopAudio() { if (player) player.pause(); }
+// free fallback: the browser's own Hindi voice (quality depends on the device)
+function browserSpeak(text) {
+  if (!window.speechSynthesis) throw new Error("No audio available on this browser");
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "hi-IN";
+  const voice = speechSynthesis.getVoices().find(v => v.lang.startsWith("hi"));
+  if (voice) u.voice = voice;
+  u.rate = .9;
+  speechSynthesis.speak(u);
+}
+function stopAudio() { if (player) player.pause(); if (window.speechSynthesis) speechSynthesis.cancel(); }
 
 // similarity 0-100 using edit distance on the Devanagari text
 function similarity(a, b) {

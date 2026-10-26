@@ -357,9 +357,23 @@ function endBattle(won) {
     W.won = true; const got = addXP(100); persist(); confettiBurst(true); chime([523, 659, 784, 1047]);
     $w("bQ").innerHTML = `<h2>🏆 Victory! +${got} XP</h2><p>The words are free. The bazaar speaks again!</p><button class="bopt" id="bDone">Back to the world</button>`;
   } else {
-    $w("bQ").innerHTML = `<h2>💔 Defeated</h2><p>Practise in the Dojo (or find the Lucky Laddu 🍬) and try again.</p><button class="bopt" id="bDone">Back</button>`;
+    return deathScreen();
   }
-  $w("bDone").onclick = () => { $w("battle").hidden = true; if (won) goTo("bazaar", 9, 7); else goTo("lair", 10, 10); };
+  $w("bDone").onclick = () => { $w("battle").hidden = true; goTo("bazaar", 9, 7); };
+}
+
+// death screen: Rewind restarts the fight at full health; Retreat walks you out of the lair
+function deathScreen() {
+  const d = document.createElement("div");
+  d.id = "death";
+  d.innerHTML = `<div class="dtitle">तुम हार गए</div><div class="dsub2">YOU WERE DEFEATED</div>
+    <p>राक्षस: "शब्द हमेशा मेरे रहेंगे!" <small>"The words will be mine forever!"</small></p>
+    <div class="dbtns"><button class="btn green" id="rewind">⏪ Rewind</button><button class="btn ghost" id="retreat">🏃 Retreat</button></div>
+    <p class="dtip">Tip: practise in the Dojo, or find the hidden 🍬 Lucky Laddu.</p>`;
+  document.body.appendChild(d);
+  chime([392, 330, 262, 196]);
+  $w("rewind").onclick = () => { d.classList.add("rewinding"); setTimeout(() => { d.remove(); startBattle(); }, 700); };
+  $w("retreat").onclick = () => { d.remove(); $w("battle").hidden = true; goTo("lair", 10, 10); };
 }
 
 // ---- bag ----
