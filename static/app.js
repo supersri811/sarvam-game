@@ -138,7 +138,7 @@ async function errorText(res) {
 // Sarvam text-to-speech (used by the world's NPCs and your replies). Throws on failure.
 let player = null;
 const audioCache = new Map();           // text -> Blob, so a replay doesn't hit the network again
-let sarvamDown = false;                 // after one failure (e.g. no credits) go straight to the browser voice
+let sarvamDown = "";                    // why Sarvam failed (e.g. no credits); after that, go straight to the browser voice
 async function playText(text) {
   stopAudio();
   if (!sarvamDown && !audioCache.has(text)) {
@@ -146,13 +146,24 @@ async function playText(text) {
       const res = await fetch("/api/tts", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ text }) });
       if (!res.ok) throw new Error(await errorText(res));
       audioCache.set(text, await res.blob());
-    } catch { sarvamDown = true; }
+    } catch (e) { sarvamDown = e.message || "Sarvam voice unavailable"; }
   }
   if (audioCache.has(text)) {
     player = new Audio(URL.createObjectURL(audioCache.get(text)));
     return player.play();
   }
+  toast(/credit/i.test(sarvamDown)
+    ? "⚠️ Sarvam has no credits, so this uses your browser's voice instead"
+    : "⚠️ Sarvam voice unavailable, so this uses your browser's voice instead");
   browserSpeak(text);
+}
+
+// small warning bar at the bottom of the screen
+function toast(msg) {
+  let t = document.getElementById("toast");
+  if (!t) { t = document.createElement("div"); t.id = "toast"; t.setAttribute("role", "status"); document.body.appendChild(t); }
+  t.textContent = msg;
+  replay(t, "show");
 }
 // free fallback: the browser's own Hindi voice (quality depends on the device)
 function browserSpeak(text) {

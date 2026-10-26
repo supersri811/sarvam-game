@@ -101,3 +101,8 @@ body.worldmode nav { display:none; }
 #death .dtip { color:#bbb; font-size:14px; }
 #death.rewinding { animation:rewind .7s forwards; }
 @keyframes rewind { 30% { filter:hue-rotate(180deg) invert(.3); transform:skewX(-8deg); } 100% { opacity:0; transform:scale(1.2); filter:blur(8px); } }
+
+/* warning toast (e.g. Sarvam has no credits) */
+#toast { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); z-index:60; background:var(--warn-bg); color:var(--warn-ink); border:2px solid var(--warn-ink); border-radius:12px; padding:8px 14px; font-weight:700; font-size:14px; max-width:calc(100% - 32px); text-align:center; opacity:0; pointer-events:none; }
+#toast.show { animation:toast 3.5s ease forwards; }
+@keyframes toast { 0% { opacity:0; transform:translate(-50%, 20px); } 10%, 85% { opacity:1; transform:translate(-50%, 0); } 100% { opacity:0; transform:translate(-50%, 0); } }
