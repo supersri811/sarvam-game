@@ -29,6 +29,10 @@ Open http://localhost:8000. The microphone needs `localhost` or HTTPS.
 
 ## Deploy (Render)
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/supersri811/sarvam-game)
+
+One click uses `render.yaml`; Render asks for `SARVAM_API_KEY`. Or set it up by hand:
+
 New Web Service from this repo:
 - Build command: `pip install -r requirements.txt`
 - Start command: `uvicorn app:app --host 0.0.0.0 --port $PORT`
