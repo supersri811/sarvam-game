@@ -212,6 +212,8 @@
 <!-- pinned version, loaded from cdnjs; app.js checks it exists before using it -->
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/canvas-confetti/1.9.3/confetti.browser.min.js"></script>
 <script defer src="/static/app.js"></script>
+<script defer src="/static/world.js"></script>
+<link rel="stylesheet" href="/static/world.css">
 </head>
 <body>
 <header>
@@ -220,16 +222,60 @@
     <div class="stat" title="Day streak">🔥 <span id="streak">0</span></div>
     <div class="stat" title="XP">⭐ <span id="xp">0</span></div>
     <div class="stat" title="Level">Lv <span id="level">1</span></div>
+    <button class="icon-btn" id="mode" title="Switch World / Classic">📚</button>
     <button class="icon-btn" id="theme" aria-label="Switch light/dark mode" title="Light / dark mode">🌙</button>
   </div>
   <nav>
     <button class="active" data-tab="alphabet">🔤 Alphabet</button>
     <button data-tab="practice">🎯 Practice</button>
-    <button data-tab="story" disabled>📖 Story (soon)</button>
   </nav>
 </header>
 
-<main id="alphabet">
+<main id="world" hidden>
+  <div class="wtop">
+    <span class="wchip" id="wArea">बाज़ार · Bazaar</span>
+    <span class="wchip" id="wQuest">💎 0/3</span>
+    <span class="wchip" id="wMoney">₹100</span>
+    <span class="wchip" id="wChai" hidden>☕ 2x XP</span>
+    <button class="wchip wbtn" id="wBag">🎒 Bag</button>
+  </div>
+  <div class="wstage">
+    <canvas id="wCanvas" width="240" height="160"></canvas>
+    <div id="wBanner"></div>
+    <div id="wDialog" hidden>
+      <div class="dname" id="dName"></div>
+      <div class="dline"><span id="dHi"></span> <button class="dspeak" id="dSpeak" title="Hear it">🔊</button></div>
+      <div class="dsub" id="dEn"></div>
+      <div class="dopts" id="dOpts"></div>
+      <div class="dmore" id="dMore">▼</div>
+    </div>
+  </div>
+  <div class="pad">
+    <div class="dpad">
+      <button data-d="up">▲</button><button data-d="left">◀</button><button data-d="right">▶</button><button data-d="down">▼</button>
+    </div>
+    <div class="phelp">Arrows / WASD to walk · <b>Space</b> to talk<br><label><input type="checkbox" id="wSubs" checked> English subtitles</label></div>
+    <button class="abtn" id="wA">A</button>
+  </div>
+</main>
+
+<button class="btn ghost" id="backWorld" hidden>← Back to world</button>
+
+<div id="bag" hidden><div class="card">
+  <div class="top"><h3>🎒 Bag</h3><button class="x" id="bagClose">✕</button></div>
+  <div id="bagBody"></div>
+</div></div>
+
+<div id="battle" hidden><div class="binner">
+  <div class="bfield">
+    <div class="bside"><div class="bname">You</div><div class="hp"><i id="bYouHp"></i></div><canvas id="bYou" width="16" height="16"></canvas></div>
+    <div class="bside boss"><div class="bname">राक्षस · Rakshasa</div><div class="hp"><i id="bBossHp"></i></div><canvas id="bBoss" width="16" height="16"></canvas></div>
+  </div>
+  <div class="btaunt" id="bTaunt"></div>
+  <div class="bq" id="bQ"></div>
+</div></div>
+
+<main id="alphabet" hidden>
   <div class="progress"><i id="bar"></i></div>
   <p class="sub"><span id="count">0</span> of <span id="total">0</span> letters learned · tap a letter to start</p>
   <h2>Vowels · स्वर</h2>
@@ -247,7 +293,7 @@
       <li>📝 8 mixed questions</li>
       <li>❤️ 5 hearts, a wrong answer costs one</li>
       <li>⭐ +2 XP per correct answer, +5 for finishing</li>
-      <li>🎤 One question uses your microphone (you can skip it)</li>
+      <li>⌨️ Two questions ask you to type how a word sounds</li>
     </ul>
     <button class="btn green" id="startLesson">Start lesson</button>
   </div>
@@ -260,12 +306,8 @@
     <div class="big" id="letter"></div>
     <div class="hint" id="hint"></div>
     <div class="word"><span id="word"></span><small id="meaning"></small></div>
-    <div class="row">
-      <button class="btn blue" id="hearLetter">🔊 Letter</button>
-      <button class="btn blue" id="hearWord">🔊 Word</button>
-      <button class="btn ghost" id="hearSlow">🐢 Slow</button>
-    </div>
-    <div class="row"><button class="btn green" id="mic">🎤 Say the word</button></div>
+    <div class="row"><input class="typein" id="typed" autocomplete="off" placeholder="Type how the word sounds"></div>
+    <div class="row"><button class="btn green" id="checkTyped">Check</button></div>
     <div class="toggle"><label><input type="checkbox" id="hintsOn" checked> Show hints (turn off for a challenge)</label></div>
     <div id="result"></div>
   </div>

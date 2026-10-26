@@ -1,6 +1,6 @@
 # वर्णमाला – learn Hindi letters by voice
 
-A small gamified web app, built for a Sarvam AI hackathon. The learner sees a Hindi letter with a romanised hint, hears it spoken, then says an example word into the mic and gets scored.
+A gamified Hindi-learning web app built for a Sarvam AI hackathon: a pixel-art world (bazaar, forest, desert, lair) with Hindi-speaking NPCs and a boss fight, plus a Classic mode with an Alphabet trainer and Duolingo-style practice. Answers are typed or picked; NPC lines and your replies can be played aloud with Sarvam text-to-speech.
 
 - **Text-to-speech:** Sarvam Bulbul v3 (`/api/tts`)
 - **Speech-to-text:** Sarvam Saaras v4 (`/api/stt`)

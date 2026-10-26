@@ -22,11 +22,10 @@ const PASS_SCORE = 70;
 
 // Practice lesson settings (change these to tune the game)
 const LESSON_LENGTH = 8;     // questions per lesson
-const SAY_COUNT = 1;         // "say it" questions per lesson (each one costs a paid STT call; keep <= 2)
+const TYPE_COUNT = 2;        // "type it" questions per lesson
 const MAX_HEARTS = 5;
 const XP_PER_CORRECT = 2;
 const XP_LESSON_BONUS = 5;
-const SLOW_PACE = 0.7;
 
 // ---------------------------------------------------------------------
 // small helpers
@@ -136,57 +135,20 @@ async function errorText(res) {
   try { return JSON.parse(text).error || text; } catch { return `${res.status}: ${text.slice(0, 80)}`; }
 }
 
-// Sarvam text-to-speech. Throws on failure; callers decide how to show the error.
-let player = null, playToken = 0;
-const audioCache = new Map();           // "text|pace" -> Blob, so a replay doesn't hit the network again
-async function playText(text, pace = 1) {
-  const mine = ++playToken;             // if the user moves on while we fetch, don't play stale audio
+// Sarvam text-to-speech (used by the world's NPCs and your replies). Throws on failure.
+let player = null;
+const audioCache = new Map();           // text -> Blob, so a replay doesn't hit the network again
+async function playText(text) {
   if (player) player.pause();
-  const key = `${text}|${pace}`;
-  if (!audioCache.has(key)) {
-    const res = await fetch("/api/tts", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ text, pace }) });
+  if (!audioCache.has(text)) {
+    const res = await fetch("/api/tts", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ text }) });
     if (!res.ok) throw new Error(await errorText(res));
-    audioCache.set(key, await res.blob());
+    audioCache.set(text, await res.blob());
   }
-  if (mine !== playToken) return;
-  const url = URL.createObjectURL(audioCache.get(key));
-  player = new Audio(url);
-  player.onended = () => URL.revokeObjectURL(url);
+  player = new Audio(URL.createObjectURL(audioCache.get(text)));
   await player.play();
 }
-function stopAudio() { playToken++; if (player) player.pause(); }
-
-// Microphone recording: tap to start, tap again (or 6 s) to stop.
-// onStart/onStop update the button; onBlob receives the recorded audio.
-// Throws if the mic is blocked.
-let recorder = null, chunks = [], stopTimer = null;
-function stopRecording(discard) {
-  clearTimeout(stopTimer);
-  if (recorder && recorder.state === "recording") { recorder.discard = discard; recorder.stop(); }
-}
-async function toggleRecording({ onStart, onStop, onBlob }) {
-  if (recorder && recorder.state === "recording") return stopRecording(false);
-  const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-  chunks = [];
-  const rec = recorder = new MediaRecorder(stream);
-  rec.ondataavailable = e => chunks.push(e.data);
-  rec.onstop = () => {
-    stream.getTracks().forEach(t => t.stop());
-    onStop();
-    if (!rec.discard) onBlob(new Blob(chunks, { type: rec.mimeType }));
-  };
-  rec.start();
-  onStart();
-  stopTimer = setTimeout(() => stopRecording(false), 6000);
-}
-
-// Sarvam speech-to-text: returns the transcript text (throws on failure)
-async function transcribe(blob) {
-  const form = new FormData(); form.append("audio", blob, "speech.webm");
-  const res = await fetch("/api/stt", { method:"POST", body:form });
-  if (!res.ok) throw new Error(await errorText(res));
-  return (await res.json()).transcript || "";
-}
+function stopAudio() { if (player) player.pause(); }
 
 // similarity 0-100 using edit distance on the Devanagari text
 function similarity(a, b) {
@@ -200,12 +162,14 @@ function similarity(a, b) {
 }
 const clean = s => s.replace(/[^ऀ-ॿ]/g, "");
 
-// best match of the target against the whole transcript or any single word in it
-function speechScore(transcript, target) {
-  const t = clean(target);
-  const words = transcript.split(/\s+/).map(clean).filter(Boolean);
-  return Math.max(similarity(clean(transcript), t), ...words.map(w => similarity(w, t)), 0);
-}
+// typed romanised answer vs the expected one, 0-100 (case, spaces and dashes ignored)
+const latin = s => s.toLowerCase().replace(/[^a-z]/g, "");
+const typedScore = (typed, target) => similarity(latin(typed), latin(target));
+
+// perks found in the world (see world.js); kept here so lessons can use them
+save.perks = save.perks || {};
+const xpMultiplier = () => (save.perks.chaiUntil || 0) > Date.now() ? 2 : 1;
+function addXP(n) { const got = n * xpMultiplier(); save.xp += got; bumpStreak(); persist(); renderStats(); return got; }
 
 // ---------------------------------------------------------------------
 // ALPHABET TAB
@@ -232,7 +196,7 @@ function openLesson(item) {
   $("hint").textContent = `sounds like “${item[1]}”`;
   $("word").textContent = item[2];
   $("meaning").textContent = `${item[3]} · ${item[4]}`;
-  applyHints(); showResult("", "");
+  applyHints(); showResult("", ""); $("typed").value = "";
   $("lesson").classList.add("open");
 }
 const applyHints = () => {
@@ -241,58 +205,38 @@ const applyHints = () => {
   $("meaning").style.visibility = on ? "visible" : "hidden";
 };
 $("hintsOn").onchange = applyHints;
-$("close").onclick = () => { $("lesson").classList.remove("open"); stopRecording(true); };
+$("close").onclick = () => { $("lesson").classList.remove("open"); };
 
 function showResult(kind, html) {
   const r = $("result"); r.className = kind; r.innerHTML = html;
 }
 
-async function speak(text, pace, btn) {
-  btn.disabled = true;
-  try { await playText(text, pace); }
-  catch (e) { showResult("err", `<b>Couldn't play audio</b><small>${esc(e.message)}</small>`); }
-  btn.disabled = false;
+// type how the example word sounds, e.g. "kamal"
+function checkTyped() {
+  const typed = $("typed").value.trim();
+  if (!typed) return;
+  const score = typedScore(typed, current[3]);
+  if (score >= PASS_SCORE) {
+    const first = !save.learned.includes(current[0]);
+    if (first) save.learned.push(current[0]);
+    const got = addXP(first ? 10 : 2);
+    pop(`+${got} XP`); chime();
+    if (first) confettiBurst(false);               // celebrate a brand-new letter
+    showResult("ok", `<b>Great! ${score}%</b><small>${esc(current[2])} = ${esc(current[3])} (${esc(current[4])})</small>`);
+  } else {
+    showResult("bad", `<b>Almost – ${score}%</b><small>Look at the letter sounds and try again.</small>`);
+  }
 }
-$("hearLetter").onclick = e => speak(current[0], 1.0, e.currentTarget);
-$("hearWord").onclick = e => speak(current[2], 1.0, e.currentTarget);
-$("hearSlow").onclick = e => speak(current[2], SLOW_PACE, e.currentTarget);
-
-$("mic").onclick = async () => {
-  try {
-    await toggleRecording({
-      onStart: () => { $("mic").className = "btn rec"; $("mic").textContent = "⏹ Tap when done"; showResult("", ""); },
-      onStop: () => { $("mic").className = "btn green"; $("mic").textContent = "🎤 Say the word"; },
-      onBlob: grade,
-    });
-  } catch { showResult("err", "<b>Microphone blocked</b><small>Allow mic access in your browser and try again.</small>"); }
-};
-
-async function grade(blob) {
-  $("mic").disabled = true; showResult("", ""); $("mic").textContent = "Listening…";
-  try {
-    const transcript = await transcribe(blob);
-    const score = speechScore(transcript, current[2]);
-    if (score >= PASS_SCORE) {
-      const first = !save.learned.includes(current[0]);
-      if (first) save.learned.push(current[0]);
-      save.xp += first ? 10 : 2; bumpStreak(); persist(); renderStats();
-      pop(first ? "+10 XP" : "+2 XP"); chime();
-      if (first) confettiBurst(false);               // celebrate a brand-new letter
-      showResult("ok", `<b>Great! ${score}%</b><small>I heard: ${esc(transcript || "…")}</small>`);
-    } else {
-      showResult("bad", `<b>Almost – ${score}%</b><small>I heard: ${esc(transcript || "nothing")}. Listen again and retry.</small>`);
-    }
-  } catch (e) { showResult("err", `<b>Couldn't check your voice</b><small>${esc(e.message)}</small>`); }
-  $("mic").disabled = false; $("mic").textContent = "🎤 Say the word";
-}
+$("checkTyped").onclick = checkTyped;
+$("typed").addEventListener("keydown", e => { if (e.key === "Enter") checkTyped(); });
 
 // ---------------------------------------------------------------------
 // PRACTICE TAB: Duolingo-style lessons
 // Question shapes (item = one row of VOWELS/CONSONANTS):
 //   letter: { type, item, options, answer }  letter -> romanised sound
 //   read:   { type, item, options, answer }  Devanagari word -> English meaning
-//   listen: { type, item, options, answer }  audio -> Devanagari word
-//   say:    { type, item }                   English meaning -> speak it (paid STT call)
+//   pick:   { type, item, options, answer }  English meaning -> Devanagari word
+//   type:   { type, item }                   Devanagari word -> type how it sounds
 // ---------------------------------------------------------------------
 let Q = null;   // state of the lesson in progress (null when no lesson is open)
 
@@ -311,7 +255,7 @@ function makeOptions(item, key) {
 function makeQuestion(type, item) {
   if (type === "letter") return { type, item, options: makeOptions(item, i => i[1]), answer: item[1] };
   if (type === "read")   return { type, item, options: makeOptions(item, i => i[4]), answer: item[4] };
-  if (type === "listen") return { type, item, options: makeOptions(item, i => i[2]), answer: item[2] };
+  if (type === "pick")   return { type, item, options: makeOptions(item, i => i[2]), answer: item[2] };
   return { type, item };
 }
 
@@ -320,16 +264,18 @@ function buildLesson() {
   const known = ALL.filter(i => save.learned.includes(i[0]));
   const rest = ALL.filter(i => !save.learned.includes(i[0]));
   const items = [...shuffle(known), ...shuffle(rest)].slice(0, LESSON_LENGTH);
-  // every type at least twice (so at least once), "say" capped by SAY_COUNT, the remainder is random free types
-  const types = ["letter","letter","read","read","listen","listen", ...Array(SAY_COUNT).fill("say")];
-  while (types.length < LESSON_LENGTH) types.push(shuffle(["letter","read","listen"])[0]);
+  // every type at least twice, the remainder is random
+  const types = ["letter","letter","read","read","pick","pick", ...Array(TYPE_COUNT).fill("type")];
+  while (types.length < LESSON_LENGTH) types.push(shuffle(["letter","read","pick"])[0]);
   return shuffle(types.slice(0, LESSON_LENGTH)).map((t, i) => makeQuestion(t, items[i]));
 }
 
 function startLesson() {
   const queue = buildLesson();
   Q = { queue, total:queue.length, resolved:0, hearts:MAX_HEARTS, combo:0, bestCombo:0,
-        right:0, wrong:0, xp:0, q:null, checked:false, picked:null };
+        right:0, wrong:0, xp:0, q:null, checked:false, picked:null,
+        infinite: !!save.perks.laddu };           // Lucky Laddu perk: one lesson with infinite hearts
+  if (save.perks.laddu) { save.perks.laddu = false; persist(); }
   $("quiz").className = "open";
   nextQuestion();
 }
@@ -343,7 +289,7 @@ function nextQuestion() {
 // top bar: progress (wrong answers add a retry to `total`, so the bar accounts for them), hearts, combo
 function renderHud() {
   $("qBar").style.width = (100 * Q.resolved / Q.total) + "%";
-  $("qHearts").textContent = `${Q.hearts > 0 ? "❤️" : "💔"} ${Q.hearts}`;
+  $("qHearts").textContent = Q.infinite ? "❤️ ∞" : `${Q.hearts > 0 ? "❤️" : "💔"} ${Q.hearts}`;
   const combo = $("qCombo");
   combo.hidden = Q.combo < 3;
   if (!combo.hidden) { combo.textContent = `🔥 ${Q.combo} combo`; replay(combo, "combo"); }
@@ -365,40 +311,30 @@ function renderQuestion() {
     html = `<p class="qprompt">What sound does this letter make?</p><div class="qbig">${item[0]}</div>${opts("")}`;
   } else if (q.type === "read") {
     html = `<p class="qprompt">What does this word mean?</p><div class="qbig word">${item[2]}</div>${opts("")}`;
-  } else if (q.type === "listen") {
-    html = `<p class="qprompt">Tap the word you hear</p>
-      <div class="listen"><button class="roundbtn" id="qPlay" aria-label="Play word">🔊</button>
-      <button class="roundbtn slow" id="qSlow" aria-label="Play slowly">🐢</button></div>${opts("deva")}`;
-  } else { // say
-    html = `<p class="qprompt">Say this word in Hindi</p>
-      <div class="qbig meaning">${esc(item[4])}</div><div class="qhint">sounds like “${esc(item[3])}”</div>
-      <button class="btn green qmic" id="qMic">🎤 Tap to speak</button>
-      <button class="linkbtn" id="qSkip">Can't speak now</button>`;
+  } else if (q.type === "pick") {
+    html = `<p class="qprompt">Which word means this?</p><div class="qbig meaning">${esc(item[4])}</div>${opts("deva")}`;
+  } else { // type
+    html = `<p class="qprompt">Type how this word sounds</p><div class="qbig word">${item[2]}</div>
+      <input class="typein" id="qType" autocomplete="off" placeholder="e.g. kamal">`;
   }
   $("qBody").innerHTML = `<div class="qcontent">${html}<div class="qmsg" id="qMsg" aria-live="polite"></div></div>`;
 
-  if (q.type === "listen") {
-    $("qPlay").onclick = e => quizSpeak(1.0, e.currentTarget);
-    $("qSlow").onclick = e => quizSpeak(SLOW_PACE, e.currentTarget);
-    quizSpeak(1.0, $("qPlay"));            // auto-play once
+  if (q.type === "type") {
+    const box = $("qType");
+    box.oninput = () => { $("qAction").disabled = !box.value.trim(); };
+    box.focus();
   }
-  if (q.type === "say") {
-    $("qMic").onclick = quizMic;
-    $("qSkip").onclick = skipQuestion;
-  }
+  owlHelp();
+}
+
+// Wise Owl perk: greys out two wrong options
+function owlHelp() {
+  if (!save.perks.owl || !Q.q.options) return;
+  const wrong = shuffle([...document.querySelectorAll(".opt")].filter(o => Q.q.options[+o.dataset.i] !== Q.q.answer));
+  wrong.slice(0, 2).forEach(o => { o.disabled = true; o.classList.add("owl"); });
 }
 
 function quizMsg(kind, html) { const m = $("qMsg"); if (m) { m.className = "qmsg " + kind; m.innerHTML = html; } }
-
-async function quizSpeak(pace, btn) {
-  const q = Q.q;
-  btn.disabled = true;
-  try { await playText(q.item[2], pace); }
-  catch (e) {
-    if (Q && Q.q === q) quizMsg("err", `<b>Couldn't play audio</b><small>${esc(e.message)}. Tap 🔊 to try again.</small>`);
-  }
-  btn.disabled = false;
-}
 
 // pick an option (tapping an option only selects; CHECK does the grading)
 $("qBody").addEventListener("click", e => {
@@ -414,6 +350,11 @@ $("qAction").onclick = () => {
   if (!Q) return;
   if (Q.checked) return afterFeedback();
   const q = Q.q;
+  if (q.type === "type") {
+    const score = typedScore($("qType").value, q.item[3]);
+    $("qType").disabled = true;
+    return finishCheck(score >= PASS_SCORE, `You typed: ${esc($("qType").value)} (${score}%)`);
+  }
   const picked = q.options[Q.picked];
   // colour the options: green for the right one, red shake for a wrong pick
   document.querySelectorAll(".opt").forEach(o => {
@@ -426,52 +367,16 @@ $("qAction").onclick = () => {
   finishCheck(picked === q.answer);
 };
 
-// ---- say-it question: record -> transcribe -> score ----
-async function quizMic() {
-  const q = Q.q;
-  try {
-    await toggleRecording({
-      onStart: () => { const b = $("qMic"); if (b) { b.className = "btn rec qmic"; b.textContent = "⏹ Tap when done"; } quizMsg("", ""); },
-      onStop: () => { const b = $("qMic"); if (b) { b.className = "btn green qmic"; b.textContent = "🎤 Tap to speak"; } },
-      onBlob: blob => gradeSpeech(q, blob),
-    });
-  } catch { quizMsg("err", "<b>Microphone blocked</b><small>Allow mic access in your browser, or tap “Can't speak now”.</small>"); }
-}
-
-async function gradeSpeech(q, blob) {
-  const mic = $("qMic"), skip = $("qSkip");
-  mic.disabled = skip.disabled = true; mic.textContent = "Listening…"; quizMsg("", "");
-  try {
-    const transcript = await transcribe(blob);
-    if (!Q || Q.q !== q) return;                         // lesson was closed meanwhile
-    const score = speechScore(transcript, q.item[2]);
-    finishCheck(score >= PASS_SCORE, `I heard: ${esc(transcript || "nothing")} (${score}%)`);
-  } catch (e) {
-    // an error is not the learner's fault: no heart lost, they can retry or skip
-    if (!Q || Q.q !== q) return;
-    quizMsg("err", `<b>Couldn't check your voice</b><small>${esc(e.message)}</small>`);
-    mic.disabled = skip.disabled = false; mic.textContent = "🎤 Tap to speak";
-  }
-}
-
-// skipping a "say it" question costs nothing and isn't counted in accuracy
-function skipQuestion() {
-  stopRecording(true);
-  Q.resolved++;
-  renderHud();
-  nextQuestion();
-}
-
 // ---- shared result handling for every question type ----
 function finishCheck(ok, note = "") {
   const q = Q.q;
   Q.checked = true;
   if (ok) {
     Q.right++; Q.resolved++; Q.combo++; Q.bestCombo = Math.max(Q.bestCombo, Q.combo);
-    Q.xp += XP_PER_CORRECT; save.xp += XP_PER_CORRECT; bumpStreak(); persist(); renderStats();
-    pop(`+${XP_PER_CORRECT} XP`); chime();
+    const got = addXP(XP_PER_CORRECT); Q.xp += got;
+    pop(`+${got} XP`); chime();
   } else {
-    Q.wrong++; Q.hearts--; Q.combo = 0;
+    Q.wrong++; if (!Q.infinite) Q.hearts--; Q.combo = 0;
     Q.queue.push({ ...q, options: q.options && shuffle(q.options) });  // asked again at the end
     Q.total++;                                                         // progress bar now has one more to go
     chime([330, 262]);
@@ -504,7 +409,7 @@ function afterFeedback() {
 
 // ---- end screens ----
 function finishLesson() {
-  Q.xp += XP_LESSON_BONUS; save.xp += XP_LESSON_BONUS; bumpStreak(); persist(); renderStats();
+  Q.xp += addXP(XP_LESSON_BONUS);
   const tries = Q.right + Q.wrong;
   const accuracy = tries ? Math.round(100 * Q.right / tries) : 100;
   $("qBar").style.width = "100%";
@@ -537,7 +442,7 @@ function outOfHearts() {
 
 // ---- closing ----
 function closeQuiz() {
-  stopRecording(true); stopAudio();
+  stopAudio();
   $("quitSheet").hidden = true;
   $("quiz").className = "";
   Q = null;
@@ -559,6 +464,7 @@ document.addEventListener("keydown", e => {
     const o = document.querySelectorAll(".opt")[+e.key - 1];
     if (o) o.click();
   } else if (e.key === "Enter" && !e.target.closest("button") && !$("qAction").disabled) {
+    e.preventDefault();
     $("qAction").click();
   }
 });

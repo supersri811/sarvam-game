@@ -1,0 +1,81 @@
+/* ---------- pixel world ---------- */
+body.worldmode nav { display:none; }
+#world { max-width:760px; margin:0 auto; padding:10px 16px 16px; }
+.wtop { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+.wchip { background:var(--surface); border:2px solid var(--line); border-radius:10px; padding:3px 9px; font-weight:700; font-size:14px; color:var(--ink); }
+.wbtn { cursor:pointer; margin-left:auto; }
+.wstage { position:relative; border:4px solid #2b2b2b; border-radius:14px; overflow:hidden; background:#000; }
+#wCanvas { display:block; width:100%; image-rendering:pixelated; image-rendering:crisp-edges; }
+:root[data-theme="dark"] #wCanvas { filter:brightness(.82) saturate(.9) hue-rotate(-8deg); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #wCanvas { filter:brightness(.82) saturate(.9) hue-rotate(-8deg); } }
+
+#wBanner { position:absolute; left:50%; top:10px; transform:translateX(-50%); background:rgba(0,0,0,.75); color:#fff; padding:6px 14px; border-radius:8px; font-weight:800; white-space:nowrap; opacity:0; pointer-events:none; }
+#wBanner.show { animation:banner 2.4s ease forwards; }
+@keyframes banner { 0%{opacity:0; top:-30px} 15%,80%{opacity:1; top:10px} 100%{opacity:0; top:10px} }
+
+/* Pokémon-style dialogue box */
+#wDialog { position:absolute; left:6px; right:6px; bottom:6px; background:#fffdf5; color:#222; border:4px solid #333; border-radius:12px; padding:8px 12px 10px; box-shadow:inset 0 0 0 3px #d9cfa8; max-height:92%; overflow:auto; animation:dlg .2s ease; }
+@keyframes dlg { from { transform:translateY(20px); opacity:0; } }
+.dname { font-weight:800; color:#b4561b; font-size:14px; }
+.dline { font-size:20px; font-weight:700; line-height:1.35; }
+.dsub { font-size:13px; color:#666; font-style:italic; }
+.dspeak { border:0; background:none; cursor:pointer; font-size:16px; padding:0 2px; }
+.dopts { display:grid; gap:6px; margin-top:8px; }
+.dopt { display:flex; gap:6px; align-items:stretch; }
+.dopt > button:first-child { flex:1; text-align:left; background:#fff; border:3px solid #333; border-radius:10px; padding:5px 10px; cursor:pointer; color:#222; font:inherit; transition:transform .1s, background .1s; }
+.dopt > button:first-child:hover, .dopt > button:first-child:focus { background:#ffe9a8; transform:translateX(3px); outline:none; }
+.dopt b { display:block; font-size:17px; }
+.dopt small { display:block; color:#555; font-size:12px; }
+.dopt small.r { color:#1a7bb0; }
+.dopt .dspeak { border:3px solid #333; border-radius:10px; background:#fff; }
+.dmore { position:absolute; right:12px; bottom:4px; animation:blink 1s steps(2) infinite; font-size:12px; }
+@keyframes blink { 50% { opacity:0; } }
+
+/* touch controls */
+.pad { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; }
+.dpad { display:grid; grid-template-columns:repeat(3,44px); grid-template-rows:repeat(3,44px); }
+.dpad button { border:0; border-radius:8px; background:#3a3a3a; color:#fff; font-size:16px; cursor:pointer; touch-action:manipulation; }
+.dpad [data-d=up] { grid-column:2; grid-row:1; } .dpad [data-d=left] { grid-column:1; grid-row:2; }
+.dpad [data-d=right] { grid-column:3; grid-row:2; } .dpad [data-d=down] { grid-column:2; grid-row:3; }
+.phelp { color:var(--muted); font-size:13px; text-align:center; flex:1; }
+.abtn { width:64px; height:64px; border-radius:50%; border:0; background:var(--red); color:#fff; font-weight:800; font-size:22px; cursor:pointer; box-shadow:0 4px 0 var(--red-d); touch-action:manipulation; }
+.abtn:active { transform:translateY(3px); box-shadow:0 1px 0 var(--red-d); }
+
+#backWorld { position:fixed; left:12px; bottom:12px; z-index:8; width:auto; flex:none; }
+
+/* bag */
+#bag, #battle { position:fixed; inset:0; background:var(--overlay); display:flex; align-items:center; justify-content:center; z-index:30; padding:16px; }
+#bag .card { background:var(--surface); color:var(--ink); border-radius:18px; padding:16px; width:100%; max-width:420px; animation:dlg .2s ease; }
+#bag .top { display:flex; justify-content:space-between; align-items:center; }
+#bag h3 { margin:0; }
+.bagrow { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--line); }
+.bagrow small { color:var(--muted); }
+
+/* battle */
+.binner { background:linear-gradient(#3b2a4a, #1c1424); color:#fff; border:4px solid #000; border-radius:18px; width:100%; max-width:560px; padding:14px; animation:dlg .3s ease; }
+.bfield { display:flex; justify-content:space-between; align-items:flex-end; }
+.bside { width:46%; }
+.bside canvas { width:96px; height:96px; image-rendering:pixelated; display:block; margin-top:6px; }
+.bside.boss canvas { width:150px; height:150px; margin-left:auto; animation:bob 1.6s ease-in-out infinite; }
+@keyframes bob { 50% { transform:translateY(-6px); } }
+.bname { font-weight:800; font-size:14px; }
+.hp { height:10px; background:#444; border-radius:5px; overflow:hidden; margin-top:4px; }
+.hp i { display:block; height:100%; width:100%; background:#58cc02; transition:width .4s; }
+.boss .hp i { background:#ff4b4b; }
+.btaunt { margin:10px 0; background:rgba(255,255,255,.08); border-radius:10px; padding:8px 10px; min-height:44px; }
+.btaunt small { display:block; color:#cbb; font-style:italic; }
+.bq .opts { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.bq button.bopt { background:#fff; color:#222; border:3px solid #000; border-radius:10px; padding:8px; font:inherit; font-weight:700; font-size:16px; cursor:pointer; }
+.bq button.bopt:disabled { opacity:.35; }
+.bq .bprompt { font-weight:700; margin-bottom:6px; }
+.bq .bbig { font-size:34px; text-align:center; font-weight:800; }
+.shake { animation:shake .4s; }
+@keyframes shake { 20%,60% { transform:translateX(-8px); } 40%,80% { transform:translateX(8px); } }
+.flash { animation:flash .4s; }
+@keyframes flash { 50% { filter:brightness(3); } }
+
+/* text answers + owl perk */
+.typein { width:100%; padding:12px 14px; font:inherit; font-size:18px; border:2px solid var(--line); border-radius:12px; background:var(--surface); color:var(--ink); }
+.typein:focus { outline:none; border-color:var(--blue); }
+.opt.owl { opacity:.3; text-decoration:line-through; }
+@media (prefers-reduced-motion: reduce) { #wBanner.show, .bside.boss canvas, #wDialog, .dmore { animation:none; } #wBanner.show { opacity:1; } }
