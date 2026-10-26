@@ -79,3 +79,14 @@ body.worldmode nav { display:none; }
 .typein:focus { outline:none; border-color:var(--blue); }
 .opt.owl { opacity:.3; text-decoration:line-through; }
 @media (prefers-reduced-motion: reduce) { #wBanner.show, .bside.boss canvas, #wDialog, .dmore { animation:none; } #wBanner.show { opacity:1; } }
+
+/* real-time battle */
+.btimer { height:8px; background:#444; border-radius:4px; overflow:hidden; margin-bottom:8px; }
+.btimer i { display:block; height:100%; width:100%; background:linear-gradient(90deg,#ff4b4b,#ffc800); transition:width .1s linear; }
+.bside { position:relative; }
+.lunge { animation:lunge .35s ease; }
+@keyframes lunge { 40% { transform:translateX(-60px) scale(1.15); } }
+.hurt .binner { animation:hurt .3s; }
+@keyframes hurt { 30% { box-shadow:0 0 0 6px #ff4b4b, inset 0 0 40px rgba(255,0,0,.5); } }
+.dmg { position:absolute; left:30px; top:20px; color:#ff6b6b; font-weight:900; font-size:22px; text-shadow:0 2px 0 #000; animation:dmg .9s forwards; pointer-events:none; }
+@keyframes dmg { to { transform:translateY(-30px); opacity:0; } }

@@ -284,45 +284,80 @@ function choose(o) {
 function closeTalk() { talking = null; $w("wDialog").hidden = true; }
 $w("wSubs").onchange = () => { if (talking) $w("dEn").hidden = !$w("wSubs").checked; };
 
-// ---- boss battle: answer questions to attack ----
+// ---- boss battle: real-time. Answer before the timer runs out; the boss keeps attacking. ----
+const QUESTION_TIME = 8;       // seconds per question; running out = the boss hits hard
+const BOSS_EVERY = 4;          // the boss also strikes on its own every few seconds
+const HIT = { wrong:20, timeout:25, auto:8 }, YOUR_HIT = 20, CRIT_BONUS = 10;
 let B = null;
-const TAUNTS = [["तुम कुछ नहीं जानते!", "You know nothing!"], ["मेरे शब्द, मेरे!", "My words, mine!"], ["हा! फिर कोशिश करो!", "Ha! Try again!"], ["मैं अजेय हूँ!", "I am invincible!"]];
+const TAUNTS = [["तुम कुछ नहीं जानते!", "You know nothing!"], ["मेरे शब्द, मेरे!", "My words, mine!"], ["हा! फिर कोशिश करो!", "Ha! Try again!"], ["मैं अजेय हूँ!", "I am invincible!"], ["जल्दी करो!", "Hurry up!"]];
 function startBattle() {
-  B = { boss:100, you:5, infinite:!!save.perks.laddu };
+  B = { boss:100, you:100, infinite:!!save.perks.laddu, left:QUESTION_TIME, untilHit:BOSS_EVERY, timer:null, q:null };
   if (B.infinite) { save.perks.laddu = false; persist(); }
   for (const [id, i] of [["bYou", 88], ["bBoss", 110]]) {
     const c = $w(id).getContext("2d"); c.imageSmoothingEnabled = false; c.clearRect(0, 0, 16, 16); drawTileOn(c, i);
   }
   $w("battle").hidden = false; battleTurn();
+  B.timer = setInterval(tick, 100);
 }
 function drawTileOn(c, i) { c.drawImage(dung, (i % 12) * TS, Math.floor(i / 12) * TS, TS, TS, 0, 0, TS, TS); }
-function battleTurn() {
+function bars() {
   $w("bBossHp").style.width = B.boss + "%";
-  $w("bYouHp").style.width = (B.infinite ? 100 : B.you * 20) + "%";
-  const [hi, en] = TAUNTS[Math.floor(Math.random() * TAUNTS.length)];
+  $w("bYouHp").style.width = (B.infinite ? 100 : B.you) + "%";
+}
+// runs 10x a second: question countdown + the boss's own attacks
+function tick() {
+  if (!B || B.over) return;
+  B.left -= .1; B.untilHit -= .1;
+  const t = $w("bTime"); if (t) t.style.width = Math.max(0, 100 * B.left / QUESTION_TIME) + "%";
+  if (B.untilHit <= 0) { B.untilHit = BOSS_EVERY; bossStrike(HIT.auto, ["राक्षस का पंजा!", "Rakshasa's claw!"]); }
+  if (B.over) return;
+  if (B.left <= 0) { bossStrike(HIT.timeout, ["बहुत धीमे!", "Too slow!"]); if (!B.over) battleTurn(); }
+}
+function bossStrike(dmg, [hi, en]) {
+  replay($w("bBoss"), "lunge"); replay($w("bYou"), "shake"); replay($w("battle"), "hurt");
+  if (!B.infinite) B.you = Math.max(0, B.you - dmg);
+  floatDmg(B.infinite ? "🛡 0" : `-${dmg}`);
   $w("bTaunt").innerHTML = `<b>राक्षस:</b> ${hi} <small>${en}</small>`;
+  chime([330, 262]); bars();
+  if (B.you <= 0) endBattle(false);
+}
+function floatDmg(text) {
+  const d = document.createElement("div"); d.className = "dmg"; d.textContent = text;
+  $w("bYou").parentElement.appendChild(d); setTimeout(() => d.remove(), 900);
+}
+function battleTurn() {
+  bars();
+  B.left = QUESTION_TIME;
   const item = ALL[Math.floor(Math.random() * ALL.length)];
-  const q = makeQuestion(shuffle(["letter", "read", "pick"])[0], item);
+  const q = B.q = makeQuestion(shuffle(["letter", "read", "pick"])[0], item);
   const prompt = q.type === "letter" ? ["What sound?", item[0]] : q.type === "read" ? ["Meaning?", item[2]] : ["Which word means…", item[4]];
-  $w("bQ").innerHTML = `<div class="bprompt">⚔️ Attack! ${prompt[0]}</div><div class="bbig">${esc(prompt[1])}</div>
+  $w("bQ").innerHTML = `<div class="btimer"><i id="bTime"></i></div>
+    <div class="bprompt">⚔️ Attack! ${prompt[0]}</div><div class="bbig">${esc(prompt[1])}</div>
     <div class="opts">${q.options.map((o, i) => `<button class="bopt" data-i="${i}">${esc(o)}</button>`).join("")}</div>`;
   if (save.perks.owl) shuffle([...$w("bQ").querySelectorAll(".bopt")].filter(b => q.options[+b.dataset.i] !== q.answer)).slice(0, 2).forEach(b => b.disabled = true);
   $w("bQ").querySelectorAll(".bopt").forEach(b => b.onclick = () => attack(q.options[+b.dataset.i] === q.answer));
 }
 function attack(ok) {
-  if (ok) { B.boss = Math.max(0, B.boss - 20 * xpMultiplier()); replay($w("bBoss"), "flash"); chime(); }
-  else { if (!B.infinite) B.you--; replay($w("bYou"), "shake"); chime([330, 262]); }
-  if (B.boss <= 0) return endBattle(true);
-  if (B.you <= 0) return endBattle(false);
+  if (!B || B.over) return;
+  if (ok) {
+    const fast = B.left > QUESTION_TIME - 3;                // answered within 3 s = critical hit
+    const dmg = (YOUR_HIT + (fast ? CRIT_BONUS : 0)) * xpMultiplier();
+    B.boss = Math.max(0, B.boss - dmg); replay($w("bBoss"), "flash"); chime();
+    $w("bTaunt").innerHTML = fast ? `<b>⚡ CRITICAL! -${dmg}</b>` : `<b>💥 -${dmg}</b>`;
+    if (B.boss <= 0) return endBattle(true);
+  } else {
+    bossStrike(HIT.wrong, ["ग़लत! हा हा!", "Wrong! Ha ha!"]);
+    if (B.over) return;
+  }
   battleTurn();
 }
 function endBattle(won) {
-  $w("bBossHp").style.width = B.boss + "%";
+  B.over = true; clearInterval(B.timer); bars();
   if (won) {
     W.won = true; const got = addXP(100); persist(); confettiBurst(true); chime([523, 659, 784, 1047]);
     $w("bQ").innerHTML = `<h2>🏆 Victory! +${got} XP</h2><p>The words are free. The bazaar speaks again!</p><button class="bopt" id="bDone">Back to the world</button>`;
   } else {
-    $w("bQ").innerHTML = `<h2>💔 Defeated</h2><p>Practise in the Dojo and try again.</p><button class="bopt" id="bDone">Back</button>`;
+    $w("bQ").innerHTML = `<h2>💔 Defeated</h2><p>Practise in the Dojo (or find the Lucky Laddu 🍬) and try again.</p><button class="bopt" id="bDone">Back</button>`;
   }
   $w("bDone").onclick = () => { $w("battle").hidden = true; if (won) goTo("bazaar", 9, 7); else goTo("lair", 10, 10); };
 }
