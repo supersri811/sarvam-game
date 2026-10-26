@@ -139,19 +139,45 @@ const NPCS = [
   { id:"v4", area:"bazaar", x:4, y:6, s:97, wander:true, name:"सिपाही (Guard)", nodes:{ start:{ hi:"बाज़ार में आम सस्ते हैं।", en:"Mangoes are cheap in the bazaar.", opts:[{ hi:"धन्यवाद!", en:"Thanks!", r:"dhanyavaad" }] } } },
   { id:"v5", area:"forest", x:6, y:5, s:87, wander:true, name:"लकड़हारा (Woodcutter)", nodes:{ start:{ hi:"सुना है जंगल के कोने में उल्लू छिपा है...", en:"I hear an owl hides in a corner of the forest...", opts:[{ hi:"सच में?", en:"Really?", r:"sach mein" }] } } },
   { id:"v6", area:"desert", x:9, y:6, s:86, wander:true, name:"यात्री (Traveller)", nodes:{ start:{ hi:"बहुत गर्मी है! पानी है?", en:"It's very hot! Do you have water?", opts:[{ hi:"माफ़ कीजिए, नहीं।", en:"Sorry, no.", r:"maaf keejiye, nahin" }] } } },
+  { id:"g1", area:"forest", x:12, y:2, s:121, wander:true, name:"भूत (Friendly ghost)", nodes:{ start:{ hi:"बूऊ! डर गए?", en:"Boo! Scared?", opts:[{ hi:"नहीं, बिल्कुल नहीं!", en:"No, not at all!", r:"nahin, bilkul nahin" }] } } },
+  { id:"f2", area:"forest", x:15, y:9, s:85, wander:true, name:"शिकारी (Hunter)", nodes:{ start:{ hi:"शश्श! हिरन सो रहा है।", en:"Shh! The deer is sleeping.", opts:[{ hi:"माफ़ कीजिए।", en:"Sorry.", r:"maaf keejiye" }] } } },
+  { id:"d2", area:"desert", x:15, y:5, s:87, wander:true, name:"ऊँटवाला (Camel driver)", nodes:{ start:{ hi:"मेरा ऊँट भाग गया! बहुत गर्मी है।", en:"My camel ran away! It's so hot.", opts:[{ hi:"बुरा हुआ!", en:"That's bad!", r:"bura hua" }] } } },
+  { id:"b1", area:"lair", x:5, y:5, s:120, wander:true, name:"चमगादड़ (Bat)", nodes:{ start:{ hi:"चीं चीं! अँधेरा अच्छा है!", en:"Squeak! Darkness is nice!", opts:[{ hi:"मुझे रोशनी पसंद है।", en:"I like light.", r:"mujhe roshni pasand hai" }] } } },
+  { id:"b2", area:"lair", x:14, y:6, s:120, wander:true, name:"चमगादड़ (Bat)", nodes:{ start:{ hi:"राक्षस बहुत गुस्से में है!", en:"The Rakshasa is very angry!", opts:[{ hi:"मैं तैयार हूँ।", en:"I am ready.", r:"main taiyaar hoon" }] } } },
+  { id:"sp", area:"lair", x:10, y:9, s:122, wander:true, name:"मकड़ी (Spider)", nodes:{ start:{ hi:"मेरा जाल मत तोड़ो!", en:"Don't break my web!", opts:[{ hi:"ठीक है, नहीं तोड़ूँगा।", en:"Okay, I won't break it.", r:"theek hai, nahin todoonga" }] } } },
 ];
 for (const n of NPCS) Object.assign(n, { hx:n.x, hy:n.y, fx:n.x, fy:n.y, t:1, face:1 });   // home + animation state
+
+// ---- pickups: walk up + Space. Each one teaches a Hindi word. ----
+const PICKUPS = [
+  { id:"honey", area:"bazaar", x:18, y:9,  sheet:town, s:94,  hi:"शहद", en:"honey", r:"shahad", add:"🍯 शहद" },
+  { id:"mush1", area:"forest", x:3,  y:10, sheet:town, s:29,  hi:"कुकुरमुत्ता", en:"mushroom", r:"kukurmuttaa", add:"🍄 कुकुरमुत्ता" },
+  { id:"mush2", area:"forest", x:15, y:3,  sheet:town, s:29,  hi:"कुकुरमुत्ता", en:"mushroom (+₹5)", r:"kukurmuttaa", money:5 },
+  { id:"fchest",area:"forest", x:16, y:12, sheet:dung, s:89,  hi:"संदूक", en:"chest (+₹50)", r:"sandook", money:50 },
+  { id:"bottle",area:"desert", x:16, y:11, sheet:dung, s:116, hi:"पानी की बोतल", en:"water bottle", r:"paani ki botal", add:"💧 पानी की बोतल" },
+  { id:"dchest",area:"desert", x:2,  y:12, sheet:dung, s:89,  hi:"संदूक", en:"chest (+₹100)", r:"sandook", money:100 },
+  { id:"lchest1",area:"lair",  x:2,  y:1,  sheet:dung, s:91,  hi:"ख़ज़ाना", en:"treasure (+₹200)", r:"khazaanaa", money:200 },
+  { id:"lchest2",area:"lair",  x:17, y:1,  sheet:dung, s:91,  hi:"ख़ज़ाना", en:"treasure (+₹200)", r:"khazaanaa", money:200 },
+];
+const pickupAt = (x, y) => PICKUPS.find(o => o.area === W.area && o.x === x && o.y === y && !W.picked.includes(o.id));
+function collect(o) {
+  W.picked.push(o.id);
+  if (o.money) W.money += o.money;
+  if (o.add) W.items.push(o.add);
+  persist(); hud(); chime(); pop(o.money ? `+₹${o.money}` : "🎁");
+  say({ name:"🎁 मिला! (Found!)", hi:o.hi, en:`${o.en} · “${o.r}”`, opts:[{ hi:"वाह!", en:"Wow!", r:"vaah" }] });
+}
 
 // ---- secrets: deliberately overpowered perks ----
 const SECRETS = [
   { id:"chai",  area:"bazaar", x:1,  y:12, name:"☕ Golden Chai",   desc:"Double XP for 10 minutes" },
   { id:"owl",   area:"forest", x:18, y:1,  name:"🦉 Wise Owl",      desc:"Crosses out 2 wrong answers, forever" },
-  { id:"laddu", area:"desert", x:18, y:1,  name:"🍬 Lucky Laddu",   desc:"Infinite hearts next lesson / boss fight" },
+  { id:"laddu", area:"desert", x:17, y:1,  name:"🍬 Lucky Laddu",   desc:"Infinite hearts next lesson / boss fight" },
   { id:"pouch", area:"forest", x:1,  y:12, name:"💰 Rupee Pouch",   desc:"+₹1000" },
 ];
 
 // ---- saved world state (inside the shared save object) ----
-save.world = Object.assign({ area:"bazaar", x:9, y:7, money:100, items:[], gems:[], found:[], won:false }, save.world || {});
+save.world = Object.assign({ area:"bazaar", x:9, y:7, money:100, items:[], gems:[], found:[], picked:[], won:false }, save.world || {});
 const W = save.world;
 const area = () => AREAS[W.area];
 const $w = id => document.getElementById(id);
@@ -163,6 +189,58 @@ const tileAt = (x, y) => (area().map[y] || "")[x] || " ";
 function drawTile(sheet, i, px, py) {
   ctx.drawImage(sheet, (i % 12) * TS, Math.floor(i / 12) * TS, TS, TS, px, py, TS, TS);
 }
+// ---- ambient life: butterflies, falling leaves, blowing sand, embers ----
+// particles live in screen space (pixels of the 240x160 canvas)
+const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let parts = [], partsArea = "", tumble = null;
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = list => list[Math.floor(Math.random() * list.length)];
+const WEATHER = {
+  bazaar: { max:10, make: () => ({ x:rnd(0,240), y:rnd(0,160), vx:rnd(-.2,.2), vy:rnd(-.15,.15), c:pick(["#fff","#ffd1e8","#ffe066"]), fly:true, ph:rnd(0,6) }) },
+  forest: { max:40, make: () => ({ x:rnd(-20,240), y:rnd(-20,-2), vx:rnd(.05,.35), vy:rnd(.25,.55), c:pick(["#e8892b","#f2c14e","#c4512b","#d9a13b"]), ph:rnd(0,6), leaf:true }) },
+  desert: { max:45, make: () => ({ x:rnd(-40,0), y:rnd(0,160), vx:rnd(1.5,3), vy:rnd(-.1,.1), c:"rgba(245,217,160,.8)", streak:true }) },
+  lair:   { max:30, make: () => ({ x:rnd(0,240), y:rnd(150,170), vx:rnd(-.15,.15), vy:rnd(-.6,-.25), c:pick(["#ff7b2e","#ffb340","#ff4b4b"]), ph:rnd(0,6), ember:true }) },
+};
+function drawWeather(px, py) {
+  const wx = WEATHER[W.area]; if (!wx) return;
+  if (partsArea !== W.area) { parts = []; partsArea = W.area; tumble = null; }
+  const max = calm ? Math.ceil(wx.max / 4) : wx.max;
+  while (parts.length < max) parts.push(wx.make());
+  for (const p of parts) {
+    p.ph = (p.ph || 0) + .05;
+    if (p.leaf) { p.x += p.vx + Math.sin(p.ph) * .4; p.y += p.vy; }
+    else if (p.fly) {                              // butterflies flutter randomly
+      p.vx = Math.max(-.4, Math.min(.4, p.vx + rnd(-.03,.03))); p.vy = Math.max(-.3, Math.min(.3, p.vy + rnd(-.03,.03)));
+      p.x += p.vx; p.y += p.vy;
+    }
+    else { p.x += p.vx + (p.ember ? Math.sin(p.ph) * .3 : 0); p.y += p.vy; }
+    ctx.fillStyle = p.c;
+    if (p.streak) ctx.fillRect(p.x, p.y, 4, 1);
+    else if (p.fly) { const wing = Math.sin(p.ph * 6) > 0 ? 2 : 1; ctx.fillRect(p.x - wing, p.y, wing, 1); ctx.fillRect(p.x + 1, p.y, wing, 1); }
+    else if (p.ember) { ctx.globalAlpha = .5 + Math.sin(p.ph * 3) * .5; ctx.fillRect(p.x, p.y, 1, 1); ctx.globalAlpha = 1; }
+    else ctx.fillRect(p.x, p.y, Math.sin(p.ph) > 0 ? 2 : 1, 2);   // a leaf "turning" as it falls
+  }
+  parts = parts.filter(p => p.x > -50 && p.x < 260 && p.y > -30 && p.y < 175);
+  if (W.area === "desert") {                      // a tumbleweed rolls across now and then
+    if (!tumble && Math.random() < .004) tumble = { x:-10, y:rnd(20,150), a:0 };
+    if (tumble) {
+      tumble.x += 1.2; tumble.a += .15; const by = tumble.y - Math.abs(Math.sin(tumble.a)) * 4;
+      ctx.strokeStyle = "#9b6b3a"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(tumble.x, by, 4, tumble.a, tumble.a + 5.5); ctx.stroke();
+      ctx.beginPath(); ctx.arc(tumble.x, by, 2, -tumble.a, -tumble.a + 4); ctx.stroke();
+      if (tumble.x > 250) tumble = null;
+    }
+    ctx.fillStyle = "rgba(255,190,90,.07)"; ctx.fillRect(0, 0, 240, 160);          // warm haze
+  }
+  if (W.area === "forest") { ctx.fillStyle = "rgba(255,140,40,.06)"; ctx.fillRect(0, 0, 240, 160); }  // autumn glow
+  if (W.area === "lair") {                        // darkness with a flickering light around you
+    const r = 55 + Math.sin(frame / 6) * 3 + rnd(-1, 1);
+    const g = ctx.createRadialGradient(px, py, 8, px, py, r);
+    g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(5,0,10,.82)");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 240, 160);
+  }
+}
+
 // buildings and fences are made of edge/middle pieces: pick the right one from the neighbours
 function pieceAt(c, x, y, fallback) {
   const is = (dx, dy, set) => set.includes(tileAt(x + dx, y + dy));
@@ -191,6 +269,8 @@ function draw() {
     const px = (s.x - camX) * TS + 8, py = (s.y - camY) * TS + 8, r = 2 + Math.sin(frame / 8) * 1.5;
     ctx.fillStyle = "rgba(255,240,120,.9)"; ctx.fillRect(px - r, py - .5, r * 2, 1); ctx.fillRect(px - .5, py - r, 1, r * 2);
   }
+  for (const o of PICKUPS) if (o.area === W.area && !W.picked.includes(o.id))
+    drawTile(o.sheet, o.s, Math.round((o.x - camX) * TS), Math.round((o.y - camY) * TS));
   for (const n of NPCS) if (n.area === W.area && !(n.id === "boss" && W.won)) {
     if (n.t < 1) n.t = Math.min(1, n.t + .08);
     const nx = (n.fx + (n.x - n.fx) * n.t - camX) * TS, ny = (n.fy + (n.y - n.fy) * n.t - camY) * TS;
@@ -207,6 +287,7 @@ function draw() {
   ctx.save();
   if (face < 0) { ctx.translate(ppx + TS, ppy); ctx.scale(-1, 1); drawTile(dung, 88, 0, 0); } else drawTile(dung, 88, ppx, ppy);
   ctx.restore();
+  drawWeather((cx - camX) * TS + 8, (cy - camY) * TS + 8);
   if (anim.t < 1) anim.t = Math.min(1, anim.t + .2);
   requestAnimationFrame(draw);
 }
@@ -217,7 +298,7 @@ const npcAt = (x, y) => NPCS.find(n => n.area === W.area && n.x === x && n.y ===
 function solid(x, y) {
   const c = tileAt(x, y);
   if (c === "k" && W.area === "desert" && W.gems.length < 3) return true;  // cave sealed until 3 gems
-  return (LEGEND[c] || [, , true])[2] || !!npcAt(x, y);
+  return (LEGEND[c] || [, , true])[2] || !!npcAt(x, y) || !!pickupAt(x, y);
 }
 function move(dx, dy) {
   if (busy()) return;
@@ -276,6 +357,7 @@ let talking = null;
 const busy = () => talking || !$w("bag").hidden || !$w("battle").hidden || $w("world").hidden;
 function interact() {
   if (talking) return;
+  const o = pickupAt(W.x + dir.x, W.y + dir.y); if (o) return collect(o);
   const n = npcAt(W.x + dir.x, W.y + dir.y); if (!n) return;
   let node = "start";
   if (n.id === "dadaji" && W.won) node = "won";
